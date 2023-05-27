@@ -22,7 +22,7 @@ A `ipc` example is provided to compare fakes, function summaries and vMocks.
    -DSEA_LINK=llvm-link-14 \
    -DCMAKE_C_COMPILER=clang-14 \
    -DCMAKE_CXX_COMPILER=clang++-14 \
-   -DSEAHORN_ROOT=<SEAHORN_ROOT> -DTRUSTY_TARGET=<TRUSTY_TARGET> \
+   -DSEAHORN_ROOT=<SEAHORN_ROOT> -DTRUSTY_TARGET=x86_64 \
    ../ -GNinja
 ```
 
