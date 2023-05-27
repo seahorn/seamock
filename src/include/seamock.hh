@@ -4,9 +4,9 @@
 #include <boost/hana/fwd/intersection.hpp>
 #include <boost/hana/fwd/tuple.hpp>
 #include <boost/hana/string.hpp>
-#include <nondet.h>
 #include <seahorn/seahorn.h>
 
+#include <algorithm>
 #include <array>
 #include <boost/hana.hpp>
 #include <boost/hana/assert.hpp>
@@ -15,7 +15,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-using namespace boost::hana::literals;
+namespace hana = boost::hana;
+using namespace hana::literals;
 
 #define ND __declspec(noalias)
 
@@ -39,13 +40,9 @@ extern void sea_printf(const char *format, ...);
 #define SEQ_COUNTER_MAXVAL 10
 static size_t g_sequence_counter;
 
-namespace hana = boost::hana;
-
 namespace seamock {
 namespace util {
 
-// auto SeqTuple = hana::make_tuple(-1_c, -1_c, -1_c);
-// const char *SeqArray[3] = {"UNDEF", "UNDEF", "UNDEF"};
 static std::array<const char *, 5> SeqArray{"UNDEF", "UNDEF", "UNDEF", "UNDEF",
                                             "UNDEF"};
 
@@ -199,6 +196,10 @@ static BOOST_HANA_CONSTEXPR_LAMBDA auto skeletal = [](auto &&expectations_map,
   auto indexed_args_pairs = hana::zip(hana::to_tuple(args_range), args_tuple);
   // NOTE: e.g., ((1, P1), (3, P3)) --> (1, 3)
   auto capture_params_indices = hana::keys(capture_map);
+  // NOTE: If assertions fails, a capture map parameter index is out of bounds!
+  hana::for_each(capture_params_indices, [&](auto elem) {
+    BOOST_HANA_CONSTANT_ASSERT(elem < (hana::size(args_tuple)));
+  });
   // NOTE:  _ --> ((1, arg1), (3, arg3))
   auto filtered_args = hana::filter(indexed_args_pairs, [&](auto pair) {
     auto idx = hana::at(pair, hana::size_c<0>);

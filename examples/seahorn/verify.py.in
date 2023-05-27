@@ -15,6 +15,7 @@ SEAHORN_ROOT = "@SEAHORN_ROOT@"
 ASSERT_ERROR_PREFIX = r'^Error: assertion failed'
 # the plan is to have two sets, vac error and info and put filepath:linenumbers) into both
 VACUITY_CHECK_RE = r'^(?P<stream>Info|Error).*(?P<what>vacuity|assertion).*(?P<result>passed|failed).*sat\) (?P<debuginfo>.*)$'
+SEA_YAML_RELATIVE_DIR = os.path.join('examples', 'seahorn')
 
 # inspired from https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
 class bcolors:
@@ -112,15 +113,16 @@ def main(argv):
                    'yama', '--yforce']
 
             # base config
-            base_config = os.path.join(script_dir, 'seahorn', 'sea.yaml')
+            base_config = os.path.join(script_dir, SEA_YAML_RELATIVE_DIR, 'sea.yaml')
+            print("base_config=", base_config)
             if args.cex:
-                base_config = os.path.join(script_dir, 'seahorn',
+                base_config = os.path.join(script_dir, SEA_YAML_RELATIVE_DIR,
                                            'sea.cex.yaml')
             cmd.extend(['-y', base_config])
 
             # vacuity config
             if args.vac:
-                vac_config = os.path.join(script_dir, 'seahorn',
+                vac_config = os.path.join(script_dir, SEA_YAML_RELATIVE_DIR,
                                           'sea.vac.yaml')
                 cmd.extend(['-y', vac_config])
 

@@ -1,6 +1,7 @@
-#include <env.h>
+
 #include <ipc.h>
 
+#include <seahorn/seahorn.h>
 #include <stddef.h>
 #include <stdlib.h>
 
@@ -12,6 +13,12 @@
   } while (0)
 
 #define ERROR -1
+
+extern int create_channel(void);
+extern int wait_for_msg(void);
+extern int get_msg(int, size_t *);
+extern int read_msg(int, char *);
+extern int put_msg(int);
 
 int do_handle_msg(msg_handler_t msg_handler, int chan) {
   char *msg = (char *)malloc(MAX_SIZE);

@@ -5,9 +5,14 @@ project(ipc C CXX)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/llvmir)
 include(LLVMIRUtil)
 include(CTest)
+find_package(Boost 1.71 REQUIRED)
 
 # Enable CTest
 enable_testing()
+
+if(Boost_FOUND)
+    include_directories(${Boost_INCLUDE_DIRS})
+endif()
 
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR )
   message (FATAL_ERROR
@@ -47,8 +52,8 @@ endif()
 
 #set(SEA_LIB ${CMAKE_CURRENT_SOURCE_DIR}/seahorn/lib) #
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/examples/seahorn/verify.py.in examples/seahorn/verify @ONLY)
-set(VERIFY_CMD ${CMAKE_CURRENT_BINARY_DIR}/examples/seahorn/verify)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/examples/verify.py.in verify @ONLY)
+set(VERIFY_CMD ${CMAKE_CURRENT_BINARY_DIR}/examples/verify)
 
 #include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/include)
 

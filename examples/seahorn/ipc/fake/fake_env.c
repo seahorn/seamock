@@ -78,12 +78,15 @@ int put_msg(int chan) {
   return 0;
 }
 
+// --- unit proof begins
+
 static int test_msg_handler(char *msg, size_t msg_size) {
   sassert(!sea_is_modified((char *)msg));
   return nd_int();
 }
 
 int main(void) {
+  sea_tracking_on();
   // create 2 channels
   create_channel();
   create_channel();
