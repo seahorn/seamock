@@ -28,10 +28,6 @@ jobs:
         id: exclude_files
         run: (test -f ".github/workflows/blacklist.${{steps.type.outputs.type}}.txt" && echo ::set-output name=exclude_files::"($(cut -f 1 ".github/workflows/blacklist.${{steps.type.outputs.type}}.txt" | head -c -1 | tr '\n' '|'))" ) || (echo ::set-output name=exclude_files::" ")
 
-      - name: Get exclude test (for handle-type-is-ptr)
-        id: exclude_files_ptr
-        run: (test -f ".github/workflows/blacklist.ptr.${{steps.type.outputs.type}}.txt" && echo ::set-output name=exclude_files::"($(cut -f 1 ".github/workflows/blacklist.ptr.${{steps.type.outputs.type}}.txt" | head -c -1 | tr '\n' '|'))" ) || (echo ::set-output name=exclude_files::" ")
-
       - name: Docker (Build and run tests)
         run: docker build -t seamock . --file docker/seamock.Dockerfile
 

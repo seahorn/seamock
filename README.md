@@ -4,7 +4,7 @@
 <a href="url"><img src="https://github.com/seahorn/seamock/blob/main/assets/seahorse.png" align="left" height="48" width="48" ></a>
 
 # SeaMock
-SeaMock is a mocking framework for verification
+SeaMock is a mocking framework for verification.
 
 SeaMock is a header-only framework. 
 It depends on Boost Hana and requires for it to be installed.
@@ -16,6 +16,9 @@ A `ipc` example is provided to compare fakes, function summaries and vMocks.
 
 
 ### Configuration 
+1. Instructions for building and running a docker image of SeaMock is available in this [README](https://github.com/seahorn/seamock/blob/main/docker/README.md).
+Instructions for setting up the build locally follow.
+
 1. Setup SEAHORN as described in https://github.com/seahorn/verifyTrusty/tree/fmcad23.
 
 1. Use CMake to configure project.
