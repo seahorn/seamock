@@ -230,7 +230,6 @@ function(sea_get_file_name VAR LLVMIR_TARGET)
 endfunction()
 
 function(sea_attach_bc_link name)
-  #sea_link_libraries(${name} sea_libc_trusty.ir)
   sea_attach_bc(${name})
 endfunction()
 
@@ -250,6 +249,12 @@ endfunction()
 function(sea_add_unsat_test TARGET)
   sea_get_file_name(BC ${TARGET}.ir)
   add_test(NAME "${TARGET}_unsat_test" COMMAND ${VERIFY_CMD} ${VERIFY_FLAGS} --expect=unsat ${BC})
+endfunction()
+
+function(sea_add_will_fail_unsat_test TARGET)
+  sea_get_file_name(BC ${TARGET}.ir)
+  add_test(NAME "${TARGET}_unsat_test" COMMAND ${VERIFY_CMD} ${VERIFY_FLAGS} --expect=unsat ${BC})
+  set_property(TEST "${TARGET}_unsat_test" PROPERTY WILL_FAIL TRUE)
 endfunction()
 
 # Set upper bound on data structures

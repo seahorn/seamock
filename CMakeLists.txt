@@ -53,7 +53,7 @@ endif()
 #set(SEA_LIB ${CMAKE_CURRENT_SOURCE_DIR}/seahorn/lib) #
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/examples/verify.py.in verify @ONLY)
-set(VERIFY_CMD ${CMAKE_CURRENT_BINARY_DIR}/examples/verify)
+set(VERIFY_CMD ${CMAKE_CURRENT_BINARY_DIR}/verify)
 
 #include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/include)
 
