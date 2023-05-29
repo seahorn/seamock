@@ -1,4 +1,4 @@
-# Docker Images for C-Rust
+# Docker Images for SeaMock
 
 In TOP level directory, run
 
