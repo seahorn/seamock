@@ -1,0 +1,34 @@
+# This CMake file is run as a script from sea_discover_tests
+# to discover tests in a bitcode file and write a new CTestTestfile
+
+# Inspired by https://github.com/Kitware/CMake/blob/master/Modules/GoogleTest.cmake
+
+set(LLVM_NM "llvm-nm-14" CACHE PATH "Path to llvm-nm")
+set(CPP_FILT "c++filt" CACHE PATH "Path to c++filt")
+set(AWK "awk" CACHE PATH "Path to awk")
+
+function(sea_discover_tests_impl TARGET BC VERIFY_CMD)
+  #sea_get_file_name(BC ${TARGET}.ir)
+  #cmake_path(APPEND_STRING TARGET ".ir" BC)
+  cmake_path(SET bcpath "${BC}")
+  cmake_path(GET bcpath PARENT_PATH bc_dir_path)
+  cmake_path(APPEND bc_dir_path "CTestTestfile.cmake" OUTPUT_VARIABLE ctest_file)
+
+  set(NM_ARGS "--defined-only")
+  # assume that functions starting with test_ are tests
+  set(AWK_ARGS "{if (($2 == \"T\") && ($3 ~ /^test_.*$/)) {print $3}}")
+  execute_process(COMMAND ${LLVM_NM} ${NM_ARGS} ${BC}
+    COMMAND ${AWK} ${AWK_ARGS}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    OUTPUT_VARIABLE TEST_NAMES
+    )
+  string(REPLACE "\n" ";" TEST_NAMES_LIST ${TEST_NAMES})  # make a cmake list
+  file(REMOVE ${ctest_file})  # delete the existing CTestFile
+  foreach(TEST_NAME ${TEST_NAMES_LIST})
+      file(APPEND ${ctest_file} "add_test(${TARGET}_${TEST_NAME}_unsat_test
+            \"${VERIFY_CMD}\" \"--expect=unsat\" \"--entry-point=${TEST_NAME}\" \"${BC}\" )\n")
+      message(STATUS "Added test: ${TARGET}_${TEST_NAME}_unsat_test")
+  endforeach()
+endfunction()
+
+sea_discover_tests_impl(${TARGET} ${TEST_TARGET} ${VERIFY_CMD})

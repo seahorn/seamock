@@ -33,8 +33,6 @@ set(SEA_PP "${SEAHORN_ROOT}/bin/seapp" CACHE STRING  "Path to seapp binary")
 set(LLVMIR_OPT ${SEA_OPT})
 set(SEAMOCK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE PATH "Path to SEAMOCK src directory")
 
-#set(TRUSTY_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/trusty)
-#set(TRUSTY_MOD_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/trusty_mod)
 set(TRUSTY_TARGET "arm32" CACHE STRING "Trusty target for verification")
 #set(EXTERNAL_ROOT ${TRUSTY_ROOT}/external)
 #option(HANDLE_TYPE_IS_PTR "Build SHADOW MEM versions of jobs" OFF)
@@ -54,6 +52,10 @@ endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/examples/verify.py.in verify @ONLY)
 set(VERIFY_CMD ${CMAKE_CURRENT_BINARY_DIR}/verify)
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/examples/extract_tests.cmake.in extract_tests.cmake @ONLY)
+set(EXTRACT_TEST_CMD ${CMAKE_CURRENT_BINARY_DIR}/extract_tests.cmake)
+
 
 #include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/include)
 
