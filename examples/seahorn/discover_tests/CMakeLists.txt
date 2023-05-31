@@ -1,0 +1,4 @@
+add_executable(example_discover_unit
+  example_discover_tests.c)
+sea_attach_bc_link(example_discover_unit)
+sea_discover_tests(example_discover_unit)
