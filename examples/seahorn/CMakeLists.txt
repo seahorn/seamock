@@ -269,6 +269,9 @@ function(sea_discover_tests TARGET)
     -D "TARGET=${TARGET}"  # name of target
     -D "TEST_TARGET=${BC}"  # full path of linked bitcode IR file
     -D "VERIFY_CMD=${VERIFY_CMD}"  # verify cmd to use
+    -D "SYS_LLVM_NM=${LLVM_NM}"
+    -D "SYS_AWK=${AWK}"
+    -D "SYS_CPP_FILT=${CPP_FILT}"
     -P ${EXTRACT_TEST_CMD}  # extract tests script
     DEPENDS ${BC}
     COMMENT "Writing discovered tests to ${ctest_file}"

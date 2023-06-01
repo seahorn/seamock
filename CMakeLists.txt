@@ -6,6 +6,9 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/llvmir)
 include(LLVMIRUtil)
 include(CTest)
 find_package(Boost 1.71 REQUIRED)
+find_program(AWK awk mawk gawk)
+find_program(DEFAULT_LLVM_NM llvm-nm-14)
+find_program(CPP_FILT c++filt)
 
 # Enable CTest
 enable_testing()
@@ -34,8 +37,7 @@ set(LLVMIR_OPT ${SEA_OPT})
 set(SEAMOCK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE PATH "Path to SEAMOCK src directory")
 
 set(TRUSTY_TARGET "arm32" CACHE STRING "Trusty target for verification")
-#set(EXTERNAL_ROOT ${TRUSTY_ROOT}/external)
-#option(HANDLE_TYPE_IS_PTR "Build SHADOW MEM versions of jobs" OFF)
+set(LLVM_NM ${DEFAULT_LLVM_NM} CACHE PATH "Path to llvm-nm")
 
 set (CMAKE_CXX_STANDARD 17)
 
@@ -47,8 +49,6 @@ elseif(${TRUSTY_TARGET} STREQUAL "x86_64")
 else() # arm64 = aarch64
   set(TARGET_ARCH "aarch64")
 endif()
-
-#set(SEA_LIB ${CMAKE_CURRENT_SOURCE_DIR}/seahorn/lib) #
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/examples/verify.py.in verify @ONLY)
 set(VERIFY_CMD ${CMAKE_CURRENT_BINARY_DIR}/verify)
