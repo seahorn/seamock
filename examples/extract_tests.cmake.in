@@ -3,9 +3,9 @@
 
 # Inspired by https://github.com/Kitware/CMake/blob/master/Modules/GoogleTest.cmake
 
-set(LLVM_NM "llvm-nm-14" CACHE PATH "Path to llvm-nm")
-set(CPP_FILT "c++filt" CACHE PATH "Path to c++filt")
-set(AWK "awk" CACHE PATH "Path to awk")
+set(LLVM_NM ${SYS_LLVM_NM})
+set(CPP_FILT  ${SYS_CPP_FILT})
+set(AWK ${SYS_AWK})
 
 function(sea_discover_tests_impl TARGET BC VERIFY_CMD)
   #sea_get_file_name(BC ${TARGET}.ir)
