@@ -18,8 +18,6 @@
 namespace hana = boost::hana;
 using namespace hana::literals;
 
-#define ND __declspec(noalias)
-
 extern "C" {
 extern void sea_printf(const char *format, ...);
 }
@@ -139,13 +137,6 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
         });                                                                    \
   }
 
-extern "C" {
-ND int nd_trusty_ipc_err(void);
-ND size_t nd_msg_len(void);
-ND size_t nd_size(void);
-ND uint32_t nd_msg_id(void);
-ND void memhavoc(void *ptr, size_t size);
-}
 // ---------------------------------------------
 // Generic mock fn
 // ---------------------------------------------
