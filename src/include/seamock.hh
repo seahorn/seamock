@@ -177,68 +177,76 @@ static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
     sassert(timesCounter <= cardinality);
   }
   // NOTE: check that after constraint is maintained
-  auto pred_set = hana::at_key(expectations_map, AFTER);
-  auto pred_found_tup = hana::transform(pred_set, [&](auto elem) {
-    // TODO: search till g_sequence_counter - 1 instead of std::end
-    auto it = std::find(std::begin(seamock::util::SeqArray),
-                        std::end(seamock::util::SeqArray), elem.c_str());
-    return it != std::end(seamock::util::SeqArray) &&
-           std::distance(std::begin(seamock::util::SeqArray), it) <
-               g_sequence_counter - 1;
-  });
-  if (!hana::fold(pred_found_tup, true,
-                  [&](auto acc, bool element) { return acc && element; })) {
-    sea_printf("Predecessor (After) match failed!\n");
-    sassert(0);
-  };
-  auto ret_fn = hana::at_key(expectations_map, RETURN_FN);
-  auto capture_map = hana::at_key(expectations_map, CAPTURE_ARGS_MAPS);
-  // NOTE: INVARIANT: return fn should be callable
-  // static_assert(
-  //     hana::is_valid([&ret_fn]() -> decltype(ret_fn()) { return 0; }));
-  // NOTE: (arg0, arg1, ..._N) -> (0, 1, ..._N)
-  auto args_range = hana::make_range(hana::size_c<0>, hana::size(args_tuple));
-  // BOOST_HANA_CONSTANT_ASSERT(hana::size(args_tuple) ==
-  //                            hana::size_c<2>);
-  // BOOST_HANA_CONSTANT_ASSERT(hana::size(args_range) ==
-  //                            hana::size_c<2>);
-  // NOTE: (0, 1, ..._N), (arg0, arg1, ..._N) --> ((0, arg0), (1, arg1),
-  // ..._N)
-  auto indexed_args_pairs = hana::zip(hana::to_tuple(args_range), args_tuple);
-  // NOTE: e.g., ((1, P1), (3, P3)) --> (1, 3)
-  auto capture_params_indices = hana::keys(capture_map);
-  // NOTE: If assertions fails, a capture map parameter index is out of bounds!
-  hana::for_each(capture_params_indices, [&](auto elem) {
-    BOOST_HANA_CONSTANT_ASSERT(elem < (hana::size(args_tuple)));
-  });
-  // NOTE:  _ --> ((1, arg1), (3, arg3))
-  auto filtered_args = hana::filter(indexed_args_pairs, [&](auto pair) {
-    auto idx = hana::at(pair, hana::size_c<0>);
-    return hana::contains(capture_params_indices, idx);
-  });
-  // BOOST_HANA_CONSTANT_ASSERT(hana::size(filtered_args) ==
-  //                            hana::size_c<1>);
-  // NOTE: ((1, arg1), (3, arg3)) --> (arg1, arg3)
-  auto args = hana::transform(filtered_args, [&](auto pair) {
-    return hana::at(pair, hana::size_c<1>);
-  });
-  // NOTE: ((1, P1), (3, P3)) --> (P1, P3)
-  auto capture_params_values = hana::values(capture_map);
-  // NOTE: (P1, P3), (arg1, arg3)  --> ((P1, arg1), (P3, arg3))
-  auto param_arg_pairs = hana::zip(capture_params_values, args);
-  // BOOST_HANA_CONSTANT_ASSERT(hana::size(param_arg_pairs) ==
-  //                            hana::size_c<1>);
-  // NOTE: call functions P1(arg1), P3(arg3) for side-effects
-  hana::for_each(param_arg_pairs, [&](auto pair) {
-    auto param = hana::at(pair, hana::size_c<0>);
-    auto arg = hana::at(pair, hana::size_c<1>);
 
-    hana::apply(param, arg);
-  });
   auto invoke_fn_optional = hana::find(expectations_map, INVOKE_FN);
   return hana::eval_if(
-      hana::is_nothing(invoke_fn_optional), [&] { return ret_fn(); },
-      [=](auto _) {
+      hana::is_nothing(invoke_fn_optional),
+      [&] {
+        auto pred_set = hana::at_key(expectations_map, AFTER);
+        auto pred_found_tup = hana::transform(pred_set, [&](auto elem) {
+          // TODO: search till g_sequence_counter - 1 instead of std::end
+          auto it = std::find(std::begin(seamock::util::SeqArray),
+                              std::end(seamock::util::SeqArray), elem.c_str());
+          return it != std::end(seamock::util::SeqArray) &&
+                 std::distance(std::begin(seamock::util::SeqArray), it) <
+                     g_sequence_counter - 1;
+        });
+        if (!hana::fold(pred_found_tup, true, [&](auto acc, bool element) {
+              return acc && element;
+            })) {
+          sea_printf("Predecessor (After) match failed!\n");
+          sassert(0);
+        };
+        auto ret_fn = hana::at_key(expectations_map, RETURN_FN);
+        auto capture_map = hana::at_key(expectations_map, CAPTURE_ARGS_MAPS);
+        // NOTE: INVARIANT: return fn should be callable
+        // static_assert(
+        //     hana::is_valid([&ret_fn]() -> decltype(ret_fn()) { return 0; }));
+        // NOTE: (arg0, arg1, ..._N) -> (0, 1, ..._N)
+        auto args_range =
+            hana::make_range(hana::size_c<0>, hana::size(args_tuple));
+        // BOOST_HANA_CONSTANT_ASSERT(hana::size(args_tuple) ==
+        //                            hana::size_c<2>);
+        // BOOST_HANA_CONSTANT_ASSERT(hana::size(args_range) ==
+        //                            hana::size_c<2>);
+        // NOTE: (0, 1, ..._N), (arg0, arg1, ..._N) --> ((0, arg0), (1, arg1),
+        // ..._N)
+        auto indexed_args_pairs =
+            hana::zip(hana::to_tuple(args_range), args_tuple);
+        // NOTE: e.g., ((1, P1), (3, P3)) --> (1, 3)
+        auto capture_params_indices = hana::keys(capture_map);
+        // NOTE: If assertions fails, a capture map parameter index is out of
+        // bounds!
+        hana::for_each(capture_params_indices, [&](auto elem) {
+          BOOST_HANA_CONSTANT_ASSERT(elem < (hana::size(args_tuple)));
+        });
+        // NOTE:  _ --> ((1, arg1), (3, arg3))
+        auto filtered_args = hana::filter(indexed_args_pairs, [&](auto pair) {
+          auto idx = hana::at(pair, hana::size_c<0>);
+          return hana::contains(capture_params_indices, idx);
+        });
+        // BOOST_HANA_CONSTANT_ASSERT(hana::size(filtered_args) ==
+        //                            hana::size_c<1>);
+        // NOTE: ((1, arg1), (3, arg3)) --> (arg1, arg3)
+        auto args = hana::transform(filtered_args, [&](auto pair) {
+          return hana::at(pair, hana::size_c<1>);
+        });
+        // NOTE: ((1, P1), (3, P3)) --> (P1, P3)
+        auto capture_params_values = hana::values(capture_map);
+        // NOTE: (P1, P3), (arg1, arg3)  --> ((P1, arg1), (P3, arg3))
+        auto param_arg_pairs = hana::zip(capture_params_values, args);
+        // BOOST_HANA_CONSTANT_ASSERT(hana::size(param_arg_pairs) ==
+        //                            hana::size_c<1>);
+        // NOTE: call functions P1(arg1), P3(arg3) for side-effects
+        hana::for_each(param_arg_pairs, [&](auto pair) {
+          auto param = hana::at(pair, hana::size_c<0>);
+          auto arg = hana::at(pair, hana::size_c<1>);
+
+          hana::apply(param, arg);
+        });
+        return ret_fn();
+      },
+      [&](auto _) {
         auto invoke_fn = _(invoke_fn_optional).value();
         return hana::unpack(args_tuple, invoke_fn);
       });
