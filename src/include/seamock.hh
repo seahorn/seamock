@@ -34,7 +34,7 @@ extern void sea_printf(const char *format, ...);
 #define CAPTURE_ARGS_MAPS BOOST_HANA_STRING("capture_map")
 #define TIMES BOOST_HANA_STRING("cardinality")
 #define AFTER BOOST_HANA_STRING("predecessors")
-
+#define INVOKE_FN BOOST_HANA_STRING("invoke_fn_on_args")
 #define SEQ_COUNTER_MAXVAL 10
 static size_t g_sequence_counter;
 
@@ -53,8 +53,8 @@ static constexpr auto DefaultExpectationsMap = hana::make_map(
     hana::make_pair(CAPTURE_ARGS_MAPS, hana::make_map()),
     hana::make_pair(AFTER, hana::make_tuple()));
 
-BOOST_HANA_CONSTEXPR_LAMBDA auto Times = [](auto times_val,
-                                            auto expectations_map) {
+BOOST_HANA_CONSTEXPR_LAMBDA
+auto Times = [](auto times_val, auto expectations_map) {
   static_assert(times_val >= 0,
                 "Function call cardinality must be zero or greater!");
   auto tmp = hana::erase_key(expectations_map, TIMES);
@@ -77,6 +77,12 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto After = [](auto predecessor_tup,
                                             auto expectations_map) {
   auto tmp = hana::erase_key(expectations_map, AFTER);
   return hana::insert(tmp, hana::make_pair(AFTER, predecessor_tup));
+};
+
+BOOST_HANA_CONSTEXPR_LAMBDA auto InvokeFn = [](auto predecessor_tup,
+                                               auto expectations_map) {
+  auto tmp = hana::erase_key(expectations_map, INVOKE_FN);
+  return hana::insert(tmp, hana::make_pair(INVOKE_FN, predecessor_tup));
 };
 
 BOOST_HANA_CONSTEXPR_LAMBDA auto Expect = [](auto func, auto arg0) {
@@ -119,29 +125,42 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
                 -1_c);                                                         \
   ret_type name(UNPACK_TRANSFORM_TUPLE(CREATE_PARAM, args_tuple)) {            \
     return hana::eval_if(                                                      \
-        hana::at_key(expectations_map, RETURN_FN) == -1_c,                     \
+        hana::at_key(expectations_map, RETURN_FN) ==                           \
+            -1_c /*&&  hana::at_key(expectations_map, INVOKE_FN) == -1_c*/,    \
         [&]() {                                                                \
           constexpr auto tmp =                                                 \
               hana::erase_key(expectations_map_w_name_##name, RETURN_FN);      \
           constexpr auto new_map =                                             \
               hana::insert(tmp, hana::make_pair(RETURN_FN, name##_ret_fn));    \
-          auto partfn = hana::partial(skeletal, new_map);                      \
-          return hana::apply(partfn, hana::make_tuple(UNPACK_TRANSFORM_TUPLE(  \
-                                         CREATE_ARG, args_tuple)));            \
+          /*auto partfn = hana::partial(skeletal, new_map); */                 \
+          return hana::apply(skeletal, new_map,                                \
+                             hana::make_tuple(UNPACK_TRANSFORM_TUPLE(          \
+                                 CREATE_ARG, args_tuple)));                    \
         },                                                                     \
         [&]() {                                                                \
-          auto partfn =                                                        \
-              hana::partial(skeletal, expectations_map_w_name_##name);         \
-          return hana::apply(partfn, hana::make_tuple(UNPACK_TRANSFORM_TUPLE(  \
-                                         CREATE_ARG, args_tuple)));            \
+          /*  auto partfn =                                                    \
+                hana::partial(skeletal, expectations_map_w_name_##name); */    \
+          return hana::apply(skeletal, expectations_map_w_name_##name,         \
+                             hana::make_tuple(UNPACK_TRANSFORM_TUPLE(          \
+                                 CREATE_ARG, args_tuple)));                    \
         });                                                                    \
   }
 
 // ---------------------------------------------
 // Generic mock fn
 // ---------------------------------------------
-static BOOST_HANA_CONSTEXPR_LAMBDA auto skeletal = [](auto &&expectations_map,
-                                                      auto &&args_tuple) {
+
+// NOTE: We want to use lazy eval when choosing whether to call return_fn or
+// invoke_fn. This means we cannot make skeletal constexpr since each branch of
+// hana::eval_if will be evaluated leading to compile-time errors. The
+// compile-time errors occur because invoke_fn key may not be present in the
+// map. We only want to get the key-value when the key is present, hence need
+// lazy eval.
+//
+// NOTE: If the fact that skeletal is non constexpr is adding runtime cost then
+// we need to think of a more complicated approach that does not require
+// laziness in eval_if
+static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
   static int timesCounter;
   auto cardinality = hana::at_key(expectations_map, TIMES);
   auto fnName = hana::at_key(expectations_map, CALL_FN_NAME);
@@ -175,7 +194,8 @@ static BOOST_HANA_CONSTEXPR_LAMBDA auto skeletal = [](auto &&expectations_map,
   auto ret_fn = hana::at_key(expectations_map, RETURN_FN);
   auto capture_map = hana::at_key(expectations_map, CAPTURE_ARGS_MAPS);
   // NOTE: INVARIANT: return fn should be callable
-  hana::is_valid([&ret_fn]() -> decltype(ret_fn()) { return 0; });
+  // static_assert(
+  //     hana::is_valid([&ret_fn]() -> decltype(ret_fn()) { return 0; }));
   // NOTE: (arg0, arg1, ..._N) -> (0, 1, ..._N)
   auto args_range = hana::make_range(hana::size_c<0>, hana::size(args_tuple));
   // BOOST_HANA_CONSTANT_ASSERT(hana::size(args_tuple) ==
@@ -215,7 +235,13 @@ static BOOST_HANA_CONSTEXPR_LAMBDA auto skeletal = [](auto &&expectations_map,
 
     hana::apply(param, arg);
   });
-  return ret_fn();
+  auto invoke_fn_optional = hana::find(expectations_map, INVOKE_FN);
+  return hana::eval_if(
+      hana::is_nothing(invoke_fn_optional), [&] { return ret_fn(); },
+      [=](auto _) {
+        auto invoke_fn = _(invoke_fn_optional).value();
+        return hana::unpack(args_tuple, invoke_fn);
+      });
 };
 
 #endif // SEAMOCK_H_

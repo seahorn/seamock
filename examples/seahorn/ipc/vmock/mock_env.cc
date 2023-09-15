@@ -27,7 +27,7 @@ static size_t g_msg_size;
 
 constexpr auto ret_fn_get_msg = []() { return nd_size_t(); };
 constexpr auto set_pointer_fn_get_msg = [](size_t *len) {
-  *len = nd_msg_len();
+  *len = nd_size_t();
   assume(IS_ALIGN64(*len)); // seahorn likes word-aligned copies
   g_msg_size = *len;
 };
