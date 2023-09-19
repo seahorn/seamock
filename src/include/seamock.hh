@@ -41,8 +41,10 @@ static size_t g_sequence_counter;
 namespace seamock {
 namespace util {
 
-static std::array<const char *, 5> SeqArray{"UNDEF", "UNDEF", "UNDEF", "UNDEF",
-                                            "UNDEF"};
+static std::array<const char *, 20> SeqArray{
+    "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF",
+    "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF",
+    "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF"};
 
 } // namespace util
 } // namespace seamock
