@@ -178,12 +178,11 @@ static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
     timesCounter++;
     sassert(timesCounter <= cardinality);
   }
-  // NOTE: check that after constraint is maintained
-
   auto invoke_fn_optional = hana::find(expectations_map, INVOKE_FN);
   return hana::eval_if(
       hana::is_nothing(invoke_fn_optional),
       [&] {
+        // NOTE: check that after constraint is maintained
         auto pred_set = hana::at_key(expectations_map, AFTER);
         auto pred_found_tup = hana::transform(pred_set, [&](auto elem) {
           // TODO: search till g_sequence_counter - 1 instead of std::end
