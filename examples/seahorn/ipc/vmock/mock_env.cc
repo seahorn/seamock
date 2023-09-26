@@ -20,9 +20,7 @@ extern bool sea_is_modified(char *);
 extern void sea_tracking_on(void);
 extern void sea_tracking_off(void);
 }
-
 // Mock env begins
-// *** Begin: define args for mock functions*** @\label{line:vmock-begin-arg}@
 static size_t g_msg_size;
 
 constexpr auto ret_fn_get_msg = []() { return nd_size_t(); };
@@ -52,17 +50,18 @@ constexpr auto capture_map_read_msg =
 
 extern "C" {
 constexpr auto get_msg_expectations = MakeExpectation(
-    Expect(Times, 1_c) ^ AND ^ Expect(ReturnFn, ret_fn_get_msg) ^ AND ^
+    Expect(Times, Eq(1_c)) ^ AND ^ Expect(ReturnFn, ret_fn_get_msg) ^ AND ^
     Expect(Capture, capture_map_get_msg));
 MOCK_FUNCTION(get_msg, get_msg_expectations, int, (int, size_t *))
 constexpr auto read_msg_expectations = MakeExpectation(
-    Expect(Times, 1_c) ^ AND ^ Expect(ReturnFn, ret_fn_read_msg) ^ AND ^
+    Expect(Times, Lt(2_c)) ^ AND ^ Expect(ReturnFn, ret_fn_read_msg) ^ AND ^
     Expect(Capture, capture_map_read_msg) ^ AND ^
     Expect(After, MAKE_PRED_FN_SET(get_msg)));
 MOCK_FUNCTION(read_msg, read_msg_expectations, int, (int, char *))
 
 LAZY_MOCK_FUNCTION(put_msg, int, (int))
 
+SETUP_POST_CHECKS((get_msg, read_msg, put_msg))
 // *** End: mock definition ***
 
 // Unit proof begins
@@ -74,6 +73,7 @@ static int test_msg_handler(char *msg, size_t msg_size) {
 int main(void) {
   int chan = nd_int();
   do_handle_msg(&test_msg_handler, chan);
+  postchecks_ok();
   return 0;
 }
 }

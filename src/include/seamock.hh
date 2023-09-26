@@ -24,7 +24,6 @@ extern void sea_printf(const char *format, ...);
 
 #define CREATE_PARAM(r, data, idx, type) (type BOOST_PP_CAT(arg, idx))
 #define CREATE_ARG(r, data, idx, type) (BOOST_PP_CAT(arg, idx))
-// name -> BOOST_HANA_STRING("name")
 #define HANA_STRINGIZE_OP(s, _data, elem)                                      \
   (BOOST_HANA_STRING(BOOST_PP_STRINGIZE(elem)))
 
@@ -32,7 +31,7 @@ extern void sea_printf(const char *format, ...);
 #define CALL_FN_NAME BOOST_HANA_STRING("call_fn_name")
 #define RETURN_FN BOOST_HANA_STRING("return_fn")
 #define CAPTURE_ARGS_MAPS BOOST_HANA_STRING("capture_map")
-#define TIMES BOOST_HANA_STRING("cardinality")
+#define TIMES_FN BOOST_HANA_STRING("cardinality_fn")
 #define AFTER BOOST_HANA_STRING("predecessors")
 #define INVOKE_FN BOOST_HANA_STRING("invoke_fn_on_args")
 #define SEQ_COUNTER_MAXVAL 10
@@ -49,19 +48,44 @@ static std::array<const char *, 20> SeqArray{
 } // namespace util
 } // namespace seamock
 
-static constexpr auto DefaultExpectationsMap = hana::make_map(
-    hana::make_pair(CALL_FN_NAME, -1_c), hana::make_pair(TIMES, -1_c),
-    hana::make_pair(RETURN_FN, -1_c),
-    hana::make_pair(CAPTURE_ARGS_MAPS, hana::make_map()),
-    hana::make_pair(AFTER, hana::make_tuple()));
+#define POST_CHECK(r, data, fn_name)                                           \
+  do {                                                                         \
+    auto cardinality_fn_optional =                                             \
+        hana::find(BOOST_PP_CAT(expectations_map_w_name_, fn_name), TIMES_FN); \
+    hana::eval_if(                                                             \
+        hana::is_nothing(cardinality_fn_optional), [] {},                      \
+        [&](auto _) {                                                          \
+          sassert(_(cardinality_fn_optional)                                   \
+                      .value()(BOOST_PP_CAT(timesCounter_, fn_name)));         \
+        });                                                                    \
+  } while (0);
+
+#define SETUP_POST_CHECKS(names_tuple)                                         \
+  void constexpr postchecks_ok() {                                             \
+    BOOST_PP_LIST_FOR_EACH(POST_CHECK, _, BOOST_PP_TUPLE_TO_LIST(names_tuple)) \
+  }
+
+static constexpr auto DefaultExpectationsMap =
+    hana::make_map(hana::make_pair(CALL_FN_NAME, -1_c),
+                   // hana::make_pair(TIMES_FN, -1_c),
+                   hana::make_pair(RETURN_FN, -1_c),
+                   hana::make_pair(CAPTURE_ARGS_MAPS, hana::make_map()),
+                   hana::make_pair(AFTER, hana::make_tuple()));
 
 BOOST_HANA_CONSTEXPR_LAMBDA
-auto Times = [](auto times_val, auto expectations_map) {
-  static_assert(times_val >= 0,
-                "Function call cardinality must be zero or greater!");
-  auto tmp = hana::erase_key(expectations_map, TIMES);
-  return hana::insert(tmp, hana::make_pair(TIMES, times_val));
+auto Times = [](auto times_fn_val, auto expectations_map) {
+  static_assert(
+      hana::sfinae(times_fn_val)(0_c) != hana::nothing,
+      "Use Eq(<int_const>), Lt(<int_const>), Gt(<int_const>) in Times action!");
+  auto tmp = hana::erase_key(expectations_map, TIMES_FN);
+  return hana::insert(tmp, hana::make_pair(TIMES_FN, times_fn_val));
 };
+
+auto Eq = [](auto val) { return hana::equal.to(val); };
+
+auto Lt = [](auto val) { return hana::less.than(val); };
+
+auto Gt = [](auto val) { return hana::greater.than(val); };
 
 BOOST_HANA_CONSTEXPR_LAMBDA auto ReturnFn = [](auto ret_fn_val,
                                                auto expectations_map) {
@@ -116,6 +140,7 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
   MOCK_FUNCTION(name, DefaultExpectationsMap, ret_type, args_tuple)
 
 #define MOCK_FUNCTION(name, expectations_map, ret_type, args_tuple)            \
+  static int timesCounter_##name = 0;                                          \
   extern ret_type CREATE_ND_FUNC_NAME(name, ret_type)(void);                   \
   BOOST_HANA_CONSTEXPR_LAMBDA auto name##_ret_fn = []() {                      \
     return CREATE_ND_FUNC_NAME(name, ret_type)();                              \
@@ -126,6 +151,13 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
   static_assert(hana::at_key(expectations_map_w_name_##name, CALL_FN_NAME) !=  \
                 -1_c);                                                         \
   ret_type name(UNPACK_TRANSFORM_TUPLE(CREATE_PARAM, args_tuple)) {            \
+    auto cardinality_fn_optional = hana::find(expectations_map, TIMES_FN);     \
+    hana::eval_if(                                                             \
+        hana::is_nothing(cardinality_fn_optional), [] {},                      \
+        [&](auto _) {                                                          \
+          timesCounter_##name = timesCounter_##name + 1;                       \
+          _(cardinality_fn_optional).value()(timesCounter_##name);             \
+        });                                                                    \
     return hana::eval_if(                                                      \
         hana::at_key(expectations_map, RETURN_FN) ==                           \
             -1_c /*&&  hana::at_key(expectations_map, INVOKE_FN) == -1_c*/,    \
@@ -163,8 +195,7 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
 // we need to think of a more complicated approach that does not require
 // laziness in eval_if
 static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
-  static int timesCounter;
-  auto cardinality = hana::at_key(expectations_map, TIMES);
+  // auto cardinality_fn = hana::at_key(expectations_map, TIMES_FN);
   auto fnName = hana::at_key(expectations_map, CALL_FN_NAME);
   static_assert(fnName != -1_c);
   // NOTE: record call in Sequence
@@ -173,11 +204,6 @@ static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
   //                              fnName);
   // NOTE: update global sequence counter
   g_sequence_counter++;
-  // cardinality of -1 means don't care
-  if (cardinality >= 0_c) {
-    timesCounter++;
-    sassert(timesCounter <= cardinality);
-  }
   auto invoke_fn_optional = hana::find(expectations_map, INVOKE_FN);
   return hana::eval_if(
       hana::is_nothing(invoke_fn_optional),
