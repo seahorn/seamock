@@ -48,6 +48,9 @@ static std::array<const char *, 20> SeqArray{
 } // namespace util
 } // namespace seamock
 
+// Define the check to run on a given function
+// NOTE: Current impl does not support querying the return function since
+// that is set local to the function.
 #define POST_CHECK(r, data, fn_name)                                           \
   do {                                                                         \
     auto cardinality_fn_optional =                                             \
@@ -60,8 +63,11 @@ static std::array<const char *, 20> SeqArray{
         });                                                                    \
   } while (0);
 
+// Define the checks to conducts on the given tuple of function names
+// names_tuple: a tuple of function names on which to run post (condition)
+// checks
 #define SETUP_POST_CHECKS(names_tuple)                                         \
-  void constexpr postchecks_ok() {                                             \
+  void postchecks_ok() {                                                       \
     BOOST_PP_LIST_FOR_EACH(POST_CHECK, _, BOOST_PP_TUPLE_TO_LIST(names_tuple)) \
   }
 
@@ -86,6 +92,9 @@ auto Eq = [](auto val) { return hana::equal.to(val); };
 auto Lt = [](auto val) { return hana::less.than(val); };
 
 auto Gt = [](auto val) { return hana::greater.than(val); };
+
+// TODO: untested
+auto And = [](auto vals...) { return hana::demux(hana::and_, vals); };
 
 BOOST_HANA_CONSTEXPR_LAMBDA auto ReturnFn = [](auto ret_fn_val,
                                                auto expectations_map) {
@@ -133,17 +142,17 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
       BOOST_PP_SEQ_TRANSFORM(HANA_STRINGIZE_OP, 0 /* don't care */,            \
                              BOOST_PP_VARIADIC_TO_SEQ(fn_names)))))
 
-#define CREATE_ND_FUNC_NAME(name, type)                                        \
-  BOOST_PP_CAT(nd_, BOOST_PP_CAT(name, BOOST_PP_CAT(type, _fn)))
+#define CREATE_ND_FUNC_NAME(name, prefix)                                      \
+  BOOST_PP_CAT(nd_, BOOST_PP_CAT(name, BOOST_PP_CAT(prefix, _fn)))
 
 #define LAZY_MOCK_FUNCTION(name, ret_type, args_tuple)                         \
   MOCK_FUNCTION(name, DefaultExpectationsMap, ret_type, args_tuple)
 
 #define MOCK_FUNCTION(name, expectations_map, ret_type, args_tuple)            \
   static int timesCounter_##name = 0;                                          \
-  extern ret_type CREATE_ND_FUNC_NAME(name, ret_type)(void);                   \
+  extern ret_type CREATE_ND_FUNC_NAME(name, _ret)(void);                       \
   BOOST_HANA_CONSTEXPR_LAMBDA auto name##_ret_fn = []() {                      \
-    return CREATE_ND_FUNC_NAME(name, ret_type)();                              \
+    return CREATE_ND_FUNC_NAME(name, _ret)();                                  \
   };                                                                           \
   constexpr auto expectations_map_w_name_##name =                              \
       hana::insert(hana::erase_key(expectations_map, CALL_FN_NAME),            \
