@@ -148,12 +148,21 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
 #define LAZY_MOCK_FUNCTION(name, ret_type, args_tuple)                         \
   MOCK_FUNCTION(name, DefaultExpectationsMap, ret_type, args_tuple)
 
+// assumes return type is int
+// function can return [MIN_INT, 0]
+#define ERR_SUC_MOCK_FUNCTION(name, args_tuple)                                \
+  extern int CREATE_ND_FUNC_NAME(name, _ret)(void);                            \
+  BOOST_HANA_CONSTEXPR_LAMBDA auto name##_ret_fn = []() {                      \
+    int ret = CREATE_ND_FUNC_NAME(name, _ret)();                               \
+    assume(ret <= 0);                                                          \
+    return ret;                                                                \
+  };                                                                           \
+  constexpr auto name##_err_suc_map =                                          \
+      ReturnFn(name##_ret_fn, DefaultExpectationsMap);                         \
+  MOCK_FUNCTION(name, name##_err_suc_map, int, args_tuple)
+
 #define MOCK_FUNCTION(name, expectations_map, ret_type, args_tuple)            \
   static int timesCounter_##name = 0;                                          \
-  extern ret_type CREATE_ND_FUNC_NAME(name, _ret)(void);                       \
-  BOOST_HANA_CONSTEXPR_LAMBDA auto name##_ret_fn = []() {                      \
-    return CREATE_ND_FUNC_NAME(name, _ret)();                                  \
-  };                                                                           \
   constexpr auto expectations_map_w_name_##name =                              \
       hana::insert(hana::erase_key(expectations_map, CALL_FN_NAME),            \
                    hana::make_pair(CALL_FN_NAME, BOOST_HANA_STRING(#name)));   \
@@ -171,6 +180,10 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
         hana::at_key(expectations_map, RETURN_FN) ==                           \
             -1_c /*&&  hana::at_key(expectations_map, INVOKE_FN) == -1_c*/,    \
         [&]() {                                                                \
+          extern ret_type CREATE_ND_FUNC_NAME(name, _ret)(void);               \
+          BOOST_HANA_CONSTEXPR_LAMBDA auto name##_ret_fn = []() {              \
+            return CREATE_ND_FUNC_NAME(name, _ret)();                          \
+          };                                                                   \
           constexpr auto tmp =                                                 \
               hana::erase_key(expectations_map_w_name_##name, RETURN_FN);      \
           constexpr auto new_map =                                             \
@@ -194,22 +207,23 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
 // ---------------------------------------------
 
 // NOTE: We want to use lazy eval when choosing whether to call return_fn or
-// invoke_fn. This means we cannot make skeletal constexpr since each branch of
-// hana::eval_if will be evaluated leading to compile-time errors. The
+// invoke_fn. This means we cannot make skeletal constexpr since each branch
+// of hana::eval_if will be evaluated leading to compile-time errors. The
 // compile-time errors occur because invoke_fn key may not be present in the
-// map. We only want to get the key-value when the key is present, hence need
-// lazy eval.
+// map. We only want to get the key-value when the key is present, hence
+// need lazy eval.
 //
-// NOTE: If the fact that skeletal is non constexpr is adding runtime cost then
-// we need to think of a more complicated approach that does not require
-// laziness in eval_if
+// NOTE: If the fact that skeletal is non constexpr is adding runtime cost
+// then we need to think of a more complicated approach that does not
+// require laziness in eval_if
 static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
   // auto cardinality_fn = hana::at_key(expectations_map, TIMES_FN);
   auto fnName = hana::at_key(expectations_map, CALL_FN_NAME);
   static_assert(fnName != -1_c);
   // NOTE: record call in Sequence
   seamock::util::SeqArray[g_sequence_counter] = fnName.c_str();
-  // seamock::util::SetTupleAtIdx(seamock::util::SeqTuple, g_sequence_counter,
+  // seamock::util::SetTupleAtIdx(seamock::util::SeqTuple,
+  // g_sequence_counter,
   //                              fnName);
   // NOTE: update global sequence counter
   g_sequence_counter++;
@@ -237,7 +251,8 @@ static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
         auto capture_map = hana::at_key(expectations_map, CAPTURE_ARGS_MAPS);
         // NOTE: INVARIANT: return fn should be callable
         // static_assert(
-        //     hana::is_valid([&ret_fn]() -> decltype(ret_fn()) { return 0; }));
+        //     hana::is_valid([&ret_fn]() -> decltype(ret_fn()) { return 0;
+        //     }));
         // NOTE: (arg0, arg1, ..._N) -> (0, 1, ..._N)
         auto args_range =
             hana::make_range(hana::size_c<0>, hana::size(args_tuple));
@@ -245,14 +260,15 @@ static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
         //                            hana::size_c<2>);
         // BOOST_HANA_CONSTANT_ASSERT(hana::size(args_range) ==
         //                            hana::size_c<2>);
-        // NOTE: (0, 1, ..._N), (arg0, arg1, ..._N) --> ((0, arg0), (1, arg1),
+        // NOTE: (0, 1, ..._N), (arg0, arg1, ..._N) --> ((0, arg0), (1,
+        // arg1),
         // ..._N)
         auto indexed_args_pairs =
             hana::zip(hana::to_tuple(args_range), args_tuple);
         // NOTE: e.g., ((1, P1), (3, P3)) --> (1, 3)
         auto capture_params_indices = hana::keys(capture_map);
-        // NOTE: If assertions fails, a capture map parameter index is out of
-        // bounds!
+        // NOTE: If assertions fails, a capture map parameter index is out
+        // of bounds!
         hana::for_each(capture_params_indices, [&](auto elem) {
           BOOST_HANA_CONSTANT_ASSERT(elem < (hana::size(args_tuple)));
         });
