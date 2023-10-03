@@ -150,6 +150,19 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
 
 // assumes return type is int
 // function can return [MIN_INT, 0]
+#define SUC_MOCK_FUNCTION(name, args_tuple)                                    \
+  extern int CREATE_ND_FUNC_NAME(name, _ret)(void);                            \
+  BOOST_HANA_CONSTEXPR_LAMBDA auto name##_ret_fn = []() {                      \
+    int ret = CREATE_ND_FUNC_NAME(name, _ret)();                               \
+    assume(ret == 0);                                                          \
+    return ret;                                                                \
+  };                                                                           \
+  constexpr auto name##_suc_map =                                              \
+      ReturnFn(name##_ret_fn, DefaultExpectationsMap);                         \
+  MOCK_FUNCTION(name, name##_suc_map, int, args_tuple)
+
+// assumes return type is int
+// function can return [MIN_INT, 0]
 #define ERR_SUC_MOCK_FUNCTION(name, args_tuple)                                \
   extern int CREATE_ND_FUNC_NAME(name, _ret)(void);                            \
   BOOST_HANA_CONSTEXPR_LAMBDA auto name##_ret_fn = []() {                      \
