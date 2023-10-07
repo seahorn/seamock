@@ -51,4 +51,3 @@ ninja && ./verify  examples/seahorn/ipc/summary/
 ninja && ./verify  examples/seahorn/ipc/vmock/
 ```
 
-
