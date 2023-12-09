@@ -5,3 +5,4 @@ add_subdirectory(lib)  # function under verification
 add_subdirectory(fake)  # fake env unitproof
 add_subdirectory(summary) # summary env unitproof
 add_subdirectory(vmock) # vmock env unitproof
+add_subdirectory(vmock_invokefn) # vmock using invokefn
