@@ -34,3 +34,6 @@ jobs:
       - name: Get number of Cores
         id: cores
         run: echo "::set-output name=num_cores::$(nproc --all)"
+
+      - name: Run Tests
+        run: docker run -t seamock /bin/bash -c "cd build && mkdir -p /tmp/seamock && env VERIFY_FLAGS=\"${{ matrix.verify_flag }}\" ctest -j ${{steps.cores.outputs.num_cores}} --output-on-failure --timeout 2000 -E \"${{ steps.exclude_files.outputs.exclude_files }}\""
