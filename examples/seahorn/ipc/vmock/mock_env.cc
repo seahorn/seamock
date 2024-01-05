@@ -23,16 +23,13 @@ extern void sea_tracking_off(void);
 // Mock env begins
 static size_t g_msg_size;
 
-constexpr auto ret_fn_get_msg = []() { return nd_size_t(); };
-constexpr auto set_pointer_fn_get_msg = [](size_t *len) {
+static constexpr auto set_pointer_fn_get_msg = [](size_t *len) {
   *len = nd_size_t();
   assume(IS_ALIGN64(*len)); // seahorn likes word-aligned copies
   g_msg_size = *len;
 };
-constexpr auto capture_map_get_msg =
-    hana::make_map(hana::make_pair(hana::size_c<1>, set_pointer_fn_get_msg));
-constexpr auto ret_fn_read_msg = []() -> size_t { return g_msg_size; };
-constexpr auto set_pointer_fn_read_msg = [](char *msg) {
+
+static constexpr auto set_pointer_fn_read_msg = [](char *msg) {
   char *blob = (char *)malloc(g_msg_size);
   memhavoc(blob, g_msg_size);
   sassert(msg);
@@ -43,21 +40,27 @@ constexpr auto set_pointer_fn_read_msg = [](char *msg) {
          g_msg_size); // seahorn likes word-aligned copies
   sea_reset_modified(msg);
 };
-constexpr auto capture_map_read_msg =
-    hana::make_map(hana::make_pair(hana::size_c<1>, set_pointer_fn_read_msg));
+
+constexpr auto get_msg_expectations = ExpectationBuilder()
+                                              .times<1>(Eq)
+                                              .returnFn(nd_int)
+                                              .captureArgAndInvoke<1>(set_pointer_fn_get_msg)
+                                              .build();
+
+constexpr auto read_msg_expectations = ExpectationBuilder()
+                                              .times<2>(Lt)
+                                              .returnFn(MOCK_UTIL_WRAP_VAL(g_msg_size))
+                                              .captureArgAndInvoke<1>(set_pointer_fn_read_msg)
+                                              .build();
+
 // *** End: define args for mock functions ***
 // *** Begin: mock definition ***
 
 extern "C" {
-constexpr auto get_msg_expectations = MakeExpectation(
-    Expect(Times, Eq(1_c)) ^ AND ^ Expect(ReturnFn, ret_fn_get_msg) ^ AND ^
-    Expect(Capture, capture_map_get_msg));
+
 MOCK_FUNCTION(get_msg, get_msg_expectations, int, (int, size_t *))
-constexpr auto read_msg_expectations = MakeExpectation(
-    Expect(Times, Lt(2_c)) ^ AND ^ Expect(ReturnFn, ret_fn_read_msg) ^ AND ^
-    Expect(Capture, capture_map_read_msg) ^ AND ^
-    Expect(After, MAKE_PRED_FN_SET(get_msg)));
-MOCK_FUNCTION(read_msg, read_msg_expectations, int, (int, char *))
+
+MOCK_FUNCTION_W_ORDER(read_msg, read_msg_expectations, MAKE_PRED_FN_SET(get_msg), int, (int, char *))
 
 LAZY_MOCK_FUNCTION(put_msg, int, (int))
 

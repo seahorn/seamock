@@ -20,6 +20,7 @@ using namespace hana::literals;
 
 extern "C" {
 extern void sea_printf(const char *format, ...);
+extern bool nd_bool(void);
 }
 
 #define CREATE_PARAM(r, data, idx, type) (type BOOST_PP_CAT(arg, idx))
@@ -102,22 +103,23 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto ReturnFn = [](auto ret_fn_val,
   return hana::insert(tmp, hana::make_pair(RETURN_FN, ret_fn_val));
 };
 
+// TODO: Allow one-by-one capture rather than force all-at-once.
 BOOST_HANA_CONSTEXPR_LAMBDA auto Capture = [](auto capture_map,
                                               auto expectations_map) {
   auto tmp = hana::erase_key(expectations_map, CAPTURE_ARGS_MAPS);
   return hana::insert(tmp, hana::make_pair(CAPTURE_ARGS_MAPS, capture_map));
 };
 
-BOOST_HANA_CONSTEXPR_LAMBDA auto After = [](auto predecessor_tup,
-                                            auto expectations_map) {
-  auto tmp = hana::erase_key(expectations_map, AFTER);
-  return hana::insert(tmp, hana::make_pair(AFTER, predecessor_tup));
-};
+// BOOST_HANA_CONSTEXPR_LAMBDA auto After = [](auto predecessor_tup,
+//                                             auto expectations_map) {
+//   auto tmp = hana::erase_key(expectations_map, AFTER);
+//   return hana::insert(tmp, hana::make_pair(AFTER, predecessor_tup));
+// };
 
-BOOST_HANA_CONSTEXPR_LAMBDA auto InvokeFn = [](auto predecessor_tup,
+BOOST_HANA_CONSTEXPR_LAMBDA auto InvokeFn = [](auto invokeFn,
                                                auto expectations_map) {
   auto tmp = hana::erase_key(expectations_map, INVOKE_FN);
-  return hana::insert(tmp, hana::make_pair(INVOKE_FN, predecessor_tup));
+  return hana::insert(tmp, hana::make_pair(INVOKE_FN, invokeFn));
 };
 
 BOOST_HANA_CONSTEXPR_LAMBDA auto Expect = [](auto func, auto arg0) {
@@ -135,12 +137,10 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
   BOOST_PP_TUPLE_ENUM(BOOST_PP_SEQ_TO_TUPLE(                                   \
       BOOST_PP_SEQ_FOR_EACH_I(func, DONT_CARE, BOOST_PP_TUPLE_TO_SEQ(tuple))))
 
-// set is actually a hana tuple but we don't account for order so
+// set is actually a sequence but we don't account for order so
 // tell the user they are making a set
 #define MAKE_PRED_FN_SET(fn_names...)                                          \
-  hana::make_tuple(BOOST_PP_TUPLE_ENUM(BOOST_PP_SEQ_TO_TUPLE(                  \
-      BOOST_PP_SEQ_TRANSFORM(HANA_STRINGIZE_OP, 0 /* don't care */,            \
-                             BOOST_PP_VARIADIC_TO_SEQ(fn_names)))))
+  BOOST_PP_VARIADIC_TO_SEQ(fn_names)
 
 #define CREATE_ND_FUNC_NAME(name, prefix)                                      \
   BOOST_PP_CAT(nd_, BOOST_PP_CAT(name, BOOST_PP_CAT(prefix, _fn)))
@@ -175,13 +175,23 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
   MOCK_FUNCTION(name, name##_err_suc_map, int, args_tuple)
 
 #define MOCK_FUNCTION(name, expectations_map, ret_type, args_tuple)            \
+  MOCK_FUNCTION_W_ORDER(name, expectations_map, BOOST_PP_SEQ_NIL /* order seq */, ret_type, args_tuple)
+
+#define ASSERT_EXECUTED_EACH(_r, _data, elem) do { sassert(BOOST_PP_CAT(g_execute_prophecy_, elem) == true); } while(0)
+
+
+#define MOCK_FUNCTION_W_ORDER(name, expectations_map, order_seq, ret_type, args_tuple)  \
   static int timesCounter_##name = 0;                                          \
+  static bool BOOST_PP_CAT(g_execute_prophecy_,name) = false;                  \
   constexpr auto expectations_map_w_name_##name =                              \
       hana::insert(hana::erase_key(expectations_map, CALL_FN_NAME),            \
                    hana::make_pair(CALL_FN_NAME, BOOST_HANA_STRING(#name)));   \
   static_assert(hana::at_key(expectations_map_w_name_##name, CALL_FN_NAME) !=  \
                 -1_c);                                                         \
   ret_type name(UNPACK_TRANSFORM_TUPLE(CREATE_PARAM, args_tuple)) {            \
+    BOOST_PP_CAT(g_execute_prophecy_,name) = true;                             \
+    /* NOTE: check that after constraint is maintained */                      \
+    BOOST_PP_SEQ_FOR_EACH(ASSERT_EXECUTED_EACH, /* data */ , order_seq);       \
     auto cardinality_fn_optional = hana::find(expectations_map, TIMES_FN);     \
     hana::eval_if(                                                             \
         hana::is_nothing(cardinality_fn_optional), [] {},                      \
@@ -207,8 +217,6 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
                                  CREATE_ARG, args_tuple)));                    \
         },                                                                     \
         [&]() {                                                                \
-          /*  auto partfn =                                                    \
-                hana::partial(skeletal, expectations_map_w_name_##name); */    \
           return hana::apply(skeletal, expectations_map_w_name_##name,         \
                              hana::make_tuple(UNPACK_TRANSFORM_TUPLE(          \
                                  CREATE_ARG, args_tuple)));                    \
@@ -245,21 +253,21 @@ static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
       hana::is_nothing(invoke_fn_optional),
       [&] {
         // NOTE: check that after constraint is maintained
-        auto pred_set = hana::at_key(expectations_map, AFTER);
-        auto pred_found_tup = hana::transform(pred_set, [&](auto elem) {
-          // TODO: search till g_sequence_counter - 1 instead of std::end
-          auto it = std::find(std::begin(seamock::util::SeqArray),
-                              std::end(seamock::util::SeqArray), elem.c_str());
-          return it != std::end(seamock::util::SeqArray) &&
-                 std::distance(std::begin(seamock::util::SeqArray), it) <
-                     g_sequence_counter - 1;
-        });
-        if (!hana::fold(pred_found_tup, true, [&](auto acc, bool element) {
-              return acc && element;
-            })) {
-          sea_printf("Predecessor (After) match failed!\n");
-          sassert(0);
-        };
+        // auto pred_tup = hana::at_key(expectations_map, AFTER);
+        // auto pred_found_tup = hana::transform(pred_tup, [&](auto elem) {
+        //   // TODO: search till g_sequence_counter - 1 instead of std::end
+        //   auto it = std::find(std::begin(seamock::util::SeqArray),
+        //                       std::end(seamock::util::SeqArray), elem.c_str());
+        //   return it != std::end(seamock::util::SeqArray) &&
+        //          std::distance(std::begin(seamock::util::SeqArray), it) <
+        //              g_sequence_counter - 1;
+        // });
+        // if (!hana::fold(pred_found_tup, true, [&](auto acc, bool element) {
+        //       return acc && element;
+        //     })) {
+        //   sea_printf("Predecessor (After) match failed!\n");
+        //   sassert(0);
+        // };
         auto ret_fn = hana::at_key(expectations_map, RETURN_FN);
         auto capture_map = hana::at_key(expectations_map, CAPTURE_ARGS_MAPS);
         // NOTE: INVARIANT: return fn should be callable
@@ -316,5 +324,57 @@ static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
         return hana::unpack(args_tuple, invoke_fn);
       });
 };
+
+
+#define MOCK_UTIL_WRAP_VAL(x) []() -> decltype(x) { return x; }
+template <typename MapType=decltype(DefaultExpectationsMap)>
+class ExpectationBuilder {
+private:
+    MapType expectationsMap;
+
+public:
+    // Constructor to initialize with an existing map
+    constexpr ExpectationBuilder(const MapType& map) : expectationsMap(map) {}
+
+    // Default constructor
+    constexpr ExpectationBuilder() : expectationsMap(DefaultExpectationsMap) {}
+
+    // ... other methods ...
+    // Method to add/update ComponentA
+    template<typename InvokeType>
+    constexpr auto invokeFn(InvokeType i) const {
+      auto updatedMap = InvokeFn(i, expectationsMap);
+      return ExpectationBuilder<decltype(updatedMap)>(updatedMap);
+    }
+
+    template<int Cardinality, typename TimesFnType>
+    constexpr auto times(TimesFnType f) const {
+      constexpr auto cardConst = hana::int_c<Cardinality>;
+      constexpr auto fn = f(cardConst);
+      auto updatedMap = Times(fn, expectationsMap);
+      return ExpectationBuilder<decltype(updatedMap)>(updatedMap);
+    }
+
+    template<typename ReturnFnType>
+    constexpr auto returnFn(ReturnFnType i) const {
+      auto updatedMap = ReturnFn(i, expectationsMap);
+      return ExpectationBuilder<decltype(updatedMap)>(updatedMap);
+    }
+
+    template<size_t ArgNum, typename CaptureFnType>
+    constexpr auto captureArgAndInvoke(CaptureFnType fn) const {
+      constexpr auto argNumber = hana::size_c<ArgNum>;
+      constexpr auto capture_map =
+          hana::make_map(hana::make_pair(argNumber, fn));
+      auto updatedMap = Capture(capture_map, expectationsMap);
+      return ExpectationBuilder<decltype(updatedMap)>(updatedMap);
+    }
+
+    // Finalize build
+    constexpr auto build() const {
+        return expectationsMap;
+    }
+};
+
 
 #endif // SEAMOCK_H_

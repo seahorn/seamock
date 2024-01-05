@@ -25,8 +25,7 @@ extern void sea_tracking_off(void);
 // Mock env begins
 static size_t g_msg_size;
 
-constexpr auto invoke_get_msg =
-    [](int chan, size_t *len) {
+constexpr auto invoke_get_msg = [](int chan, size_t *len) {
   *len = nd_size_t();
   assume(IS_ALIGN64(*len)); // seahorn likes word-aligned length
   g_msg_size = *len;
@@ -47,17 +46,20 @@ constexpr auto invoke_read_msg =
   return g_msg_size;
 };
 
+constexpr auto get_msg_expectations =
+  ExpectationBuilder().invokeFn(invoke_get_msg).times<1>(Eq).build();
+
+constexpr auto read_msg_expectations =
+  ExpectationBuilder().invokeFn(invoke_read_msg).times<2>(Lt).build();
+
 // *** End: define args for mock functions ***
 // *** Begin: mock definition ***
 
 extern "C" {
-constexpr auto get_msg_expectations = MakeExpectation(
-    Expect(Times, Eq(1_c)) ^ AND ^ Expect(InvokeFn, invoke_get_msg));
+
 MOCK_FUNCTION(get_msg, get_msg_expectations, int, (int, size_t *))
-constexpr auto read_msg_expectations = MakeExpectation(
-    Expect(Times, Lt(2_c)) ^ AND ^ Expect(InvokeFn, invoke_read_msg) ^ AND ^
-    Expect(After, MAKE_PRED_FN_SET(get_msg)));
-MOCK_FUNCTION(read_msg, read_msg_expectations, int, (int, char *))
+
+MOCK_FUNCTION_W_ORDER(read_msg, read_msg_expectations, MAKE_PRED_FN_SET(get_msg), int, (int, char *))
 
 LAZY_MOCK_FUNCTION(put_msg, int, (int))
 
