@@ -38,17 +38,6 @@ extern bool nd_bool(void);
 #define SEQ_COUNTER_MAXVAL 10
 static size_t g_sequence_counter;
 
-namespace seamock {
-namespace util {
-
-static std::array<const char *, 20> SeqArray{
-    "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF",
-    "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF",
-    "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF", "UNDEF"};
-
-} // namespace util
-} // namespace seamock
-
 // Define the check to run on a given function
 // NOTE: Current impl does not support querying the return function since
 // that is set local to the function.
@@ -88,11 +77,24 @@ auto Times = [](auto times_fn_val, auto expectations_map) {
   return hana::insert(tmp, hana::make_pair(TIMES_FN, times_fn_val));
 };
 
-auto Eq = [](auto val) { return hana::equal.to(val); };
+namespace seamock {
+template <int val>
+constexpr auto Eq() {
+    return hana::equal.to(hana::int_c<val>);
+}
 
-auto Lt = [](auto val) { return hana::less.than(val); };
 
-auto Gt = [](auto val) { return hana::greater.than(val); };
+template <int val>
+constexpr auto Lt() {
+    return hana::less.than(hana::int_c<val>);
+}
+
+template <int val>
+constexpr auto Gt() {
+    return hana::greater.than(hana::int_c<val>);
+}
+
+} // namespace seamock
 
 // TODO: untested
 auto And = [](auto vals...) { return hana::demux(hana::and_, vals); };
@@ -110,12 +112,6 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto Capture = [](auto capture_map,
   return hana::insert(tmp, hana::make_pair(CAPTURE_ARGS_MAPS, capture_map));
 };
 
-// BOOST_HANA_CONSTEXPR_LAMBDA auto After = [](auto predecessor_tup,
-//                                             auto expectations_map) {
-//   auto tmp = hana::erase_key(expectations_map, AFTER);
-//   return hana::insert(tmp, hana::make_pair(AFTER, predecessor_tup));
-// };
-
 BOOST_HANA_CONSTEXPR_LAMBDA auto InvokeFn = [](auto invokeFn,
                                                auto expectations_map) {
   auto tmp = hana::erase_key(expectations_map, INVOKE_FN);
@@ -132,6 +128,7 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto MakeExpectation = [](auto func) {
 
 BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
     hana::infix([](auto fn_x, auto fn_y) { return hana::compose(fn_x, fn_y); });
+
 
 #define UNPACK_TRANSFORM_TUPLE(func, tuple)                                    \
   BOOST_PP_TUPLE_ENUM(BOOST_PP_SEQ_TO_TUPLE(                                   \
@@ -223,6 +220,8 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
         });                                                                    \
   }
 
+#define MOCK_UTIL_WRAP_VAL(x) []() -> decltype(x) { return x; }
+
 // ---------------------------------------------
 // Generic mock fn
 // ---------------------------------------------
@@ -242,7 +241,7 @@ static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
   auto fnName = hana::at_key(expectations_map, CALL_FN_NAME);
   static_assert(fnName != -1_c);
   // NOTE: record call in Sequence
-  seamock::util::SeqArray[g_sequence_counter] = fnName.c_str();
+  // seamock::util::SeqArray[g_sequence_counter] = fnName.c_str();
   // seamock::util::SetTupleAtIdx(seamock::util::SeqTuple,
   // g_sequence_counter,
   //                              fnName);
@@ -325,8 +324,8 @@ static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
       });
 };
 
+namespace seamock {
 
-#define MOCK_UTIL_WRAP_VAL(x) []() -> decltype(x) { return x; }
 template <typename MapType=decltype(DefaultExpectationsMap)>
 class ExpectationBuilder {
 private:
@@ -347,11 +346,11 @@ public:
       return ExpectationBuilder<decltype(updatedMap)>(updatedMap);
     }
 
-    template<int Cardinality, typename TimesFnType>
+    template<typename TimesFnType>
     constexpr auto times(TimesFnType f) const {
-      constexpr auto cardConst = hana::int_c<Cardinality>;
-      constexpr auto fn = f(cardConst);
-      auto updatedMap = Times(fn, expectationsMap);
+      // constexpr auto cardConst = hana::int_c<Cardinality>;
+      // constexpr auto fn = f(cardConst);
+      auto updatedMap = Times(f, expectationsMap);
       return ExpectationBuilder<decltype(updatedMap)>(updatedMap);
     }
 
@@ -376,5 +375,5 @@ public:
     }
 };
 
-
+} // namespace seamock
 #endif // SEAMOCK_H_

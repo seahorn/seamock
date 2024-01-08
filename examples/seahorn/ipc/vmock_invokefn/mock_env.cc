@@ -47,10 +47,10 @@ constexpr auto invoke_read_msg =
 };
 
 constexpr auto get_msg_expectations =
-  ExpectationBuilder().invokeFn(invoke_get_msg).times<1>(Eq).build();
+  seamock::ExpectationBuilder().invokeFn(invoke_get_msg).times(seamock::Eq<1>()).build();
 
 constexpr auto read_msg_expectations =
-  ExpectationBuilder().invokeFn(invoke_read_msg).times<2>(Lt).build();
+  seamock::ExpectationBuilder().invokeFn(invoke_read_msg).times(seamock::Lt<2>()).build();
 
 // *** End: define args for mock functions ***
 // *** Begin: mock definition ***

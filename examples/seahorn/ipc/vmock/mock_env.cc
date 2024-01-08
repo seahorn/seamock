@@ -41,14 +41,14 @@ static constexpr auto set_pointer_fn_read_msg = [](char *msg) {
   sea_reset_modified(msg);
 };
 
-constexpr auto get_msg_expectations = ExpectationBuilder()
-                                              .times<1>(Eq)
+constexpr auto get_msg_expectations = seamock::ExpectationBuilder()
+                                              .times(seamock::Eq<1>())
                                               .returnFn(nd_int)
                                               .captureArgAndInvoke<1>(set_pointer_fn_get_msg)
                                               .build();
 
-constexpr auto read_msg_expectations = ExpectationBuilder()
-                                              .times<2>(Lt)
+constexpr auto read_msg_expectations = seamock::ExpectationBuilder()
+                                              .times(seamock::Lt<2>())
                                               .returnFn(MOCK_UTIL_WRAP_VAL(g_msg_size))
                                               .captureArgAndInvoke<1>(set_pointer_fn_read_msg)
                                               .build();
