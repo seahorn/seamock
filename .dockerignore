@@ -1,2 +1,9 @@
+.git
+.github
+.gitmodules
 build
-debug
+build-dbg
+build-rel
+.idea
+README.md
+compile-commands.json
