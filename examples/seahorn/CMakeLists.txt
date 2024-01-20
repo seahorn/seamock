@@ -173,26 +173,6 @@ function(sea_attach_bc name)
   target_compile_options(${SOURCE_EXE} PUBLIC -fdeclspec)
   target_compile_options(${SOURCE_EXE} PUBLIC -Wstrict-prototypes -Wwrite-strings)
 
-  #if (HANDLE_TYPE_IS_PTR)
-  #  target_compile_options(${SOURCE_EXE} PUBLIC -m32)  # use 32-bit ptr for x86_64 arch. See https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html.
-  #endif()
-  # work-around for Mac
-  if (NOT APPLE)
-    target_compile_options(${SOURCE_EXE} PUBLIC -target ${TARGET_ARCH}-linux-gnu)
-  endif ()
-
-  if (${TRUSTY_TARGET} STREQUAL "arm32")
-    target_compile_options(${SOURCE_EXE} PRIVATE -mfloat-abi=softfp
-      -fstack-protector-strong -mthumb
-      )
-    target_compile_definitions(${SOURCE_EXE} PRIVATE __thumb__)
-  elseif (${TRUSTY_TARGET} STREQUAL "x86_64")
-    target_compile_options(${SOURCE_EXE} PRIVATE -mcmodel=kernel -mno-red-zone -msoft-float
-    -fno-pic -ffunction-sections -fdata-sections -fno-stack-protector -fasynchronous-unwind-tables )
-  else ()
-  target_compile_options(${SOURCE_EXE} PRIVATE
-  -fno-short-enums -fno-common -fno-omit-frame-pointer -ffixed-x18 -ffunction-sections -fdata-sections -fno-stack-protector -fasynchronous-unwind-tables )
-  endif()
   set_property(TARGET ${SOURCE_EXE} PROPERTY EXCLUDE_FROM_ALL ON)
 
   if (ARGS_LINKER_LANGUAGE STREQUAL "CXX")

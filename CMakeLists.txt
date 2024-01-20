@@ -36,19 +36,9 @@ set(SEA_PP "${SEAHORN_ROOT}/bin/seapp" CACHE STRING  "Path to seapp binary")
 set(LLVMIR_OPT ${SEA_OPT})
 set(SEAMOCK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE PATH "Path to SEAMOCK src directory")
 
-set(TRUSTY_TARGET "arm32" CACHE STRING "Trusty target for verification")
 set(LLVM_NM ${DEFAULT_LLVM_NM} CACHE PATH "Path to llvm-nm")
 
 set (CMAKE_CXX_STANDARD 17)
-
-# Set gcc-toolchain directory
-if (${TRUSTY_TARGET} STREQUAL "arm32")
-  set(TARGET_ARCH "arm")
-elseif(${TRUSTY_TARGET} STREQUAL "x86_64")
-  set(TARGET_ARCH "${TRUSTY_TARGET}")
-else() # arm64 = aarch64
-  set(TARGET_ARCH "aarch64")
-endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/examples/verify.py.in verify @ONLY)
 set(VERIFY_CMD ${CMAKE_CURRENT_BINARY_DIR}/verify)
