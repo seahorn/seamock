@@ -20,9 +20,9 @@ extern bool sea_is_modified(char *);
 extern void sea_tracking_on(void);
 extern void sea_tracking_off(void);
 }
-// Mock env begins
 static size_t g_msg_size;
 
+// Begin: Mock arg capture
 static constexpr auto set_pointer_fn_get_msg = [](size_t *len) {
   *len = nd_size_t();
   assume(IS_ALIGN64(*len)); // seahorn likes word-aligned copies
@@ -41,6 +41,9 @@ static constexpr auto set_pointer_fn_read_msg = [](char *msg) {
   sea_reset_modified(msg);
 };
 
+// *** End: Mock arg capture ***
+// *** Begin: mock expect definition ***
+
 constexpr auto get_msg_expectations = seamock::ExpectationBuilder()
                                               .times(seamock::Eq<1>())
                                               .returnFn(nd_int)
@@ -52,9 +55,7 @@ constexpr auto read_msg_expectations = seamock::ExpectationBuilder()
                                               .returnFn(MOCK_UTIL_WRAP_VAL(g_msg_size))
                                               .captureArgAndInvoke<1>(set_pointer_fn_read_msg)
                                               .build();
-
-// *** End: define args for mock functions ***
-// *** Begin: mock definition ***
+// *** End: mock expect definition ***
 
 extern "C" {
 
