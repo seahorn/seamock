@@ -220,6 +220,15 @@ BOOST_HANA_CONSTEXPR_LAMBDA auto AND =
         });                                                                    \
   }
 
+// Define a function to check if it's valid to call F with Args...
+template <typename F, typename Tuple>
+auto is_callable_with_args(F&& f, Tuple&& t) {
+    auto checker = hana::is_valid([&](auto&&... args) -> decltype(f(args...)) {});
+
+    // Unpack the tuple and apply to the checker
+    return hana::unpack(std::forward<Tuple>(t), checker);
+}
+
 #define MOCK_UTIL_WRAP_VAL(x) []() -> decltype(x) { return x; }
 
 // ---------------------------------------------
@@ -270,9 +279,8 @@ static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
         auto ret_fn = hana::at_key(expectations_map, RETURN_FN);
         auto capture_map = hana::at_key(expectations_map, CAPTURE_ARGS_MAPS);
         // NOTE: INVARIANT: return fn should be callable
-        // static_assert(
-        //     hana::is_valid([&ret_fn]() -> decltype(ret_fn()) { return 0;
-        //     }));
+        BOOST_HANA_CONSTANT_ASSERT_MSG(hana::is_valid(ret_fn)(),
+                                       "Return function is not callable!");
         // NOTE: (arg0, arg1, ..._N) -> (0, 1, ..._N)
         auto args_range =
             hana::make_range(hana::size_c<0>, hana::size(args_tuple));
@@ -320,6 +328,8 @@ static auto skeletal = [](auto &&expectations_map, auto &&args_tuple) {
       },
       [&](auto _) {
         auto invoke_fn = _(invoke_fn_optional).value();
+        BOOST_HANA_CONSTANT_ASSERT_MSG(is_callable_with_args(invoke_fn, args_tuple),
+                                       "Unexpected invoke function signature!");
         return hana::unpack(args_tuple, invoke_fn);
       });
 };
